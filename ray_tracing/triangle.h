@@ -93,7 +93,6 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     double a3 = sqrt(dot(tmp, tmp)) / a;
     rec.u = a2;
     rec.v = a3;
-    //std::cerr << "hit triangle" << "\n";
 
     return true;
 }

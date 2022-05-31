@@ -141,7 +141,7 @@ bool yz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) con
     rec.set_face_normal(r, outward_normal);
     rec.mat_ptr = mp;
     rec.p = r.at(t);
-
+    
     return true;
 }
 

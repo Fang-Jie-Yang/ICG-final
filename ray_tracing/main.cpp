@@ -27,7 +27,13 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <pthread.h>
 
+// Global Materials
+auto my_metal   = make_shared<metal>(color(0.8, 0.8, 0.8), 0.3);
+auto my_glass   = make_shared<dielectric>(1.5);
+auto my_diffuse = make_shared<lambertian>(color(0.7, 0.3, 0.3));
+std::vector<shared_ptr<material>> materials = {my_metal, my_glass, my_diffuse};
 
 color ray_color(const ray& r, const color& background, const hittable& world, int depth) {
     hit_record rec;
@@ -50,9 +56,7 @@ color ray_color(const ray& r, const color& background, const hittable& world, in
     return emitted + attenuation * ray_color(scattered, background, world, depth-1);
 }
 
-void add_teapot(hittable_list& objects, shared_ptr<material> m) {
-    std::ifstream file;
-    file.open("Teapot.txt");
+void add_teapot(hittable_list& objects, std::ifstream &file, shared_ptr<material> m) {
     std::string vertex_pos_str;
     std::string vertex_norm_str;
     std::getline(file, vertex_pos_str);
@@ -60,8 +64,14 @@ void add_teapot(hittable_list& objects, shared_ptr<material> m) {
     std::istringstream vertex_pos_ss(vertex_pos_str);
     std::istringstream vertex_norm_ss(vertex_norm_str);
 
+    bool is_glass = (m == my_glass);
+    if(is_glass)
+    {
+        std::cerr << "hi, glass\n";
+    }
 
 	hittable_list teapot;
+    hittable_list inner_teapot; // for glass
     std::string val;
     int val_cnt = 0;
     double vals[3];
@@ -69,12 +79,12 @@ void add_teapot(hittable_list& objects, shared_ptr<material> m) {
     point3 points[3];
     while(getline(vertex_pos_ss, val, ','))
     {
-        //std::cout << val << "\n";
         vals[val_cnt] = stod(val);
         val_cnt++;
         if(val_cnt == 3)
         {
-            points[point_cnt] = point3(vals[0]*10, vals[1]*10, vals[2]*10);
+            // to be fixed
+            points[point_cnt] = point3(vals[0] * 10, vals[1] * 10, vals[2] * 10);
             point_cnt++;
             val_cnt = 0;
         }
@@ -86,7 +96,6 @@ void add_teapot(hittable_list& objects, shared_ptr<material> m) {
                 getline(vertex_norm_ss, val, ',');
                 avg_vertex_norm[i % 3] += stod(val) / 3;
             }
-            // to be fixed(tranformation of vertex norm)
             vec3 vertex_norm(avg_vertex_norm[0], avg_vertex_norm[1], avg_vertex_norm[2]);
             vec3 u = 0.5 * (points[1] - points[0]);
             vec3 v = 0.5 * (points[2] - points[0]);
@@ -96,116 +105,52 @@ void add_teapot(hittable_list& objects, shared_ptr<material> m) {
             shared_ptr<hittable> tri = make_shared<triangle>(points[0], points[1], points[2], face_norm, m);
             tri = make_shared<translate>(tri, vec3(0,-150,0));
             teapot.add(tri);
+            if(is_glass)
+            {
+                shared_ptr<hittable> inner_tri = make_shared<triangle>(0.95*points[0], 0.95*points[1], 0.95*points[2], -face_norm, m);
+                inner_tri = make_shared<translate>(tri, vec3(0,-150,0));
+                inner_teapot.add(inner_tri);
+            }
             point_cnt = 0;
         }
     }
 	objects.add(make_shared<bvh_node>(teapot, 0, 0));
+    if(is_glass)
+    {
+	    objects.add(make_shared<bvh_node>(inner_teapot, 0, 0));
+    }
 }
 
-hittable_list cornell_box() {
-    hittable_list objects;
+// Custom Properties
+int samples_per_pixel;
 
-    auto red   = make_shared<lambertian>(color(.65, .05, .05));
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(15, 15, 15));
+// Image
+auto aspect_ratio = 1.0;
+int image_width = 400;
+int image_height = 400;
+int max_depth = 50;
 
-    /*
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
-    */
+// World
+hittable_list world;
 
-    objects.add(make_shared<yz_rect>(0 - 278, 555 - 278, 0 - 300, 555 - 300, 555 - 278, green));
-    objects.add(make_shared<yz_rect>(0 - 278, 555 - 278, 0 - 300, 555 - 300, 0 - 278, red));
-    objects.add(make_shared<xz_rect>(213 - 278,
-									 343 - 278,
-									 227 - 50 - 300,
-									 332 + 50 - 300,
-									 554 - 278,
-									 light));
-    objects.add(make_shared<xz_rect>(0 - 278, 555 - 278, 0 - 300, 555 - 300, 555 - 278, white));
-    objects.add(make_shared<xz_rect>(0 - 278, 555 - 278, 0 - 300, 555 - 300, 0 - 278, white));
-    objects.add(make_shared<xy_rect>(0 - 278, 555 - 278, 0 - 278, 555 - 278, 555 - 300, white));
+// Camera
+camera cam;
+color background;
 
-    /*
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0,0,0), point3(165,330,165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265,0,295));
-    objects.add(box1);
 
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0,0,0), point3(165,165,165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130,0,65));
-    objects.add(box2);
-    */
+// Global(output file)
+std::vector<std::vector<std::string>> pixels;
 
-    //shared_ptr<hittable> ball = make_shared<sphere>(point3(0, 0, -2), 2, light);
-    //objects.add(ball);
-    /*
-    point3 a(555, 10, 300);
-    point3 b(0, 10, 300);
-    point3 c(227, 300, 500);
-    vec3 u = b - a;
-    vec3 v = c - a;
-    vec3 n = cross(u, v);
-    shared_ptr<hittable> tri = make_shared<triangle>(a, b, c, n, light);
-    objects.add(tri);
-    */
-	auto silver = make_shared<metal>(color(0.8, 0.8, 0.8), 0.3);
-
-    add_teapot(objects, silver);
-
-    return objects;
-}
-
-int main() {
-
-    // Image
-
-    auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 400;
-    int samples_per_pixel = 10;
-    int max_depth = 50;
-
-    // World
-
-    hittable_list world;
-
-    point3 lookfrom;
-    point3 lookat;
-    auto vfov = 40.0;
-    auto aperture = 0.0;
-    color background(0.0,0.0,0.0);
-
-    world = cornell_box();
-    aspect_ratio = 1.0;
-    image_width = 400;
-    samples_per_pixel = 1000;
-    //lookfrom = point3(278, 278, -800);
-    lookfrom = point3(0, 0, -800);
-    //lookat = point3(278, 278, 0);
-    lookat = point3(0, 0, 0);
-    vfov = 40.0;
-            
-    // Camera
-
-    const vec3 vup(0,1,0);
-    const auto dist_to_focus = 10.0;
-    const int image_height = static_cast<int>(image_width / aspect_ratio);
-
-    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
-
-    // Render
-
-    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
-    for (int j = image_height-1; j >= 0; --j) {
-        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-        for (int i = 0; i < image_width; ++i) {
+void *render_thread(void *argv)
+{
+    int *range = (int *)argv;
+    int min_width = range[0];
+    int min_height = range[1];
+    int max_width = range[2];
+    int max_height = range[3];
+    for (int j = max_height-1; j >= min_height; --j) {
+        //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+        for (int i = min_width; i < max_width; ++i) {
             color pixel_color(0,0,0);
             for (int s = 0; s < samples_per_pixel; ++s) {
                 auto u = (i + random_double()) / (image_width-1);
@@ -213,7 +158,97 @@ int main() {
                 ray r = cam.get_ray(u, v);
                 pixel_color += ray_color(r, background, world, max_depth);
             }
-            write_color(std::cout, pixel_color, samples_per_pixel);
+            write_color(i, j, pixel_color, samples_per_pixel);
+        }
+    }
+    pthread_exit(NULL);
+}
+
+
+int main(int argc, char *argv[]) {
+
+    // Arguments
+    if(argc < 3)
+    {
+        std::cerr << "usage: ./a.out samples_per_pixel number_of_teapot [teapot file names] [teapots' materials]\n";
+        std::cerr << "materials: (0) metal; (1) glass; (2) diffuse material\n";
+        return -1;
+    }
+    samples_per_pixel = atoi(argv[1]);
+    int number_of_teapot = atoi(argv[2]);
+    if(argc - 3 !=  2 * number_of_teapot)
+    {
+        std::cerr << "number of file and material does not match\n";
+        return -1;
+    }
+    std::vector<std::ifstream> teapot_files(number_of_teapot);
+    std::vector<int> teapot_materials(number_of_teapot);
+    for(int i = 0; i < number_of_teapot; i++)
+    {
+        teapot_files[i].open(argv[3 + i]);
+        teapot_materials[i] = atoi(argv[3 + number_of_teapot + i]);
+    }
+
+    // World
+    auto red   = make_shared<lambertian>(color(.65, .05, .05));
+    auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto green = make_shared<lambertian>(color(.12, .45, .15));
+    auto light = make_shared<diffuse_light>(color(15, 15, 15));
+
+    world.add(make_shared<yz_rect>(-278, 278, -300, 255,  278, green));
+    world.add(make_shared<yz_rect>(-278, 278, -300, 255, -278,   red));
+    world.add(make_shared<xz_rect>( -65,  65, -123,  82,  266, light));
+    world.add(make_shared<xz_rect>(-278, 278, -300, 255,  278, white));
+    world.add(make_shared<xz_rect>(-278, 278, -300, 255, -278, white));
+    world.add(make_shared<xy_rect>(-278, 278, -278, 278,  255, white));
+    for(int i = 0; i < number_of_teapot; i++)
+    {
+        add_teapot(world, teapot_files[i], materials[teapot_materials[i]]);
+    }
+
+    // Camera
+    point3 lookfrom = point3(0, 0, -800);
+    point3 lookat = point3(0, 0, 0);
+    auto vfov = 40.0;
+    auto aperture = 0.0;
+    background = color(0.0,0.0,0.0);
+    const vec3 vup(0,1,0);
+    const auto dist_to_focus = 10.0;
+    cam = camera(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
+    
+    // Render
+    pixels.resize(image_width);
+    for(int i = 0; i < image_width; i++)
+    {
+        pixels[i].resize(image_height, "");
+    }
+
+    pthread_t render_workers[16];
+    int width_interval = image_width / 4;
+    int height_interval = image_height / 4;
+    int range[16][4];
+    for(int j = 3; j >= 0; j--)
+    {
+        for(int i = 0; i < 4; i++)
+        {
+            int idx = i + 4 * j;
+            range[idx][0] = i * width_interval;
+            range[idx][1] = j * height_interval;
+            range[idx][2] = (i + 1) * width_interval;
+            range[idx][3] = (j + 1) * height_interval;
+            pthread_create(&render_workers[idx], NULL, render_thread, (void *)range[idx]);
+        }
+    }
+    for(int i = 0; i < 16; i++)
+    {
+        pthread_join(render_workers[i], NULL);
+    }
+    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    for (int j = image_height-1; j >= 0; --j) 
+    {
+        for (int i = 0; i < image_width; ++i) 
+        {
+            std::cout << pixels[i][j];
         }
     }
 
