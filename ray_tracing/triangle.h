@@ -56,6 +56,7 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
         return false;
 
     // check if point P is inside the triangle
+    /*
     vec3 V_1;
     vec3 V_2;
     vec3 N_1;
@@ -77,10 +78,8 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     N_1 = cross(V_2, V_1);
     if(dot(r.direction(), N_1) < 0)
         return false;
+    */
 
-    rec.p = P;
-    rec.t = t;
-    rec.mat_ptr = mat_ptr;
 
     // calculate u, v by Barycentric coordinated
     vec3 f1  = a - P;
@@ -98,12 +97,19 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     rec.u = a2;
     rec.v = a3;
 
+    if(!(0 <= a1 && a1 <= 1 && 0 <= a2 && a2 <= 1 && a1 + a2 <= 1))
+    {
+        return false;
+    }
+
+    rec.p = P;
+    rec.t = t;
+    rec.mat_ptr = mat_ptr;
     vec3 normal = a1 * n_a + a2 * n_b + a3 * n_c;
     rec.set_face_normal(r, normal);
     //rec.set_face_normal(r, norm);
 
     //std::cerr << "hit triangle\n" << std::flush;
-
     return true;
 }
 
