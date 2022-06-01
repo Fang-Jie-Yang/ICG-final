@@ -28,6 +28,9 @@
 #include <fstream>
 #include <sstream>
 #include <pthread.h>
+#include "mat.h"
+#include <array>
+#include "stdio.h"
 
 // Global Materials
 auto my_metal   = make_shared<metal>(color(0.8, 0.8, 0.8), 0.3);
@@ -56,69 +59,69 @@ color ray_color(const ray& r, const color& background, const hittable& world, in
     return emitted + attenuation * ray_color(scattered, background, world, depth-1);
 }
 
-void add_teapot(hittable_list& objects, std::ifstream &file, shared_ptr<material> m) {
-    std::string vertex_pos_str;
-    std::string vertex_norm_str;
-    std::getline(file, vertex_pos_str);
-    std::getline(file, vertex_norm_str);
-    std::istringstream vertex_pos_ss(vertex_pos_str);
-    std::istringstream vertex_norm_ss(vertex_norm_str);
+// Global Teapot 
+vector<std::array<double, 4>> teapot_pos;
+vector<std::array<double, 3>> teapot_norm;
+int teapot_vertex_cnt;
 
-    bool is_glass = (m == my_glass);
-    if(is_glass)
+void load_teapot()
+{
+    std::ifstream teapot_file;
+    teapot_file.open("modify_teapot.txt");
+
+    std::string line;
+    while(std::getline(teapot_file, line))
     {
-        std::cerr << "hi, glass\n";
+        std::array<double, 4> pos;
+        std::array<double, 3> norm;
+        sscanf(line.c_str(), "%lf %lf %lf %lf %lf %lf", &pos[0], &pos[1], &pos[2], &norm[0], &norm[1], &norm[2]);
+        pos[3] = 1.0;
+        //std::cerr << pos[0] << ", " << pos[1] << ", " << pos[2] << ", " << norm[0] << ", " << norm[1] << ", " << norm[2] << "\n";
+        teapot_pos.push_back(pos);
+        teapot_norm.push_back(norm);
     }
+    teapot_vertex_cnt = teapot_pos.size();
+    //std::cerr << "vertex num: " << teapot_vertex_cnt << "\n";
+}
+
+void add_teapot(hittable_list& objects, mat4 pos_mat, mat3 norm_mat, shared_ptr<material> m) {
 
 	hittable_list teapot;
-    hittable_list inner_teapot; // for glass
-    std::string val;
-    int val_cnt = 0;
-    double vals[3];
-    int point_cnt = 0;
-    point3 points[3];
-    while(getline(vertex_pos_ss, val, ','))
+    //hittable_list inner_teapot; // for glass
+    //print_mat4(pos_mat);
+    //print_mat3(norm_mat);
+
+    for(int i = 0; i < teapot_vertex_cnt / 3; i++)
     {
-        vals[val_cnt] = stod(val);
-        val_cnt++;
-        if(val_cnt == 3)
+        vec3 pos[3];
+        vec3 norm[3];
+        for(int j = 0; j < 3; j++)
         {
-            // to be fixed
-            points[point_cnt] = point3(vals[0] * 10, vals[1] * 10, vals[2] * 10);
-            point_cnt++;
-            val_cnt = 0;
+            std::array<double, 4> new_pos;
+            mat4_mul(pos_mat, teapot_pos[i * 3 + j], new_pos);
+            //std::cerr << "old pos:" << teapot_pos[i][0] << ", " << teapot_pos[i][1] << ", " << teapot_pos[i][2] << "\n";
+            //std::cerr << "new pos:" << new_pos[0] << ", " << new_pos[1] << ", " << new_pos[2] << "\n";
+            std::array<double, 3> new_norm;
+            mat3_mul(norm_mat, teapot_norm[i * 3 + j], new_norm);
+            pos[j] = point3(new_pos[0], new_pos[1], new_pos[2]);
+            norm[j] = vec3(new_norm[0], new_norm[1], new_norm[2]);
         }
-        if(point_cnt == 3)
-        {
-            double avg_vertex_norm[3] = {0, 0, 0};
-            for(int i = 0; i < 9; i++)
-            {
-                getline(vertex_norm_ss, val, ',');
-                avg_vertex_norm[i % 3] += stod(val) / 3;
-            }
-            vec3 vertex_norm(avg_vertex_norm[0], avg_vertex_norm[1], avg_vertex_norm[2]);
-            vec3 u = 0.5 * (points[1] - points[0]);
-            vec3 v = 0.5 * (points[2] - points[0]);
-            vec3 face_norm = cross(u, v);
-            double d = dot(vertex_norm, face_norm);
-            face_norm = (d > 0.0f)? face_norm : -face_norm;
-            shared_ptr<hittable> tri = make_shared<triangle>(points[0], points[1], points[2], face_norm, m);
-            tri = make_shared<translate>(tri, vec3(0,-150,0));
-            teapot.add(tri);
-            if(is_glass)
-            {
-                shared_ptr<hittable> inner_tri = make_shared<triangle>(0.95*points[0], 0.95*points[1], 0.95*points[2], -face_norm, m);
-                inner_tri = make_shared<translate>(tri, vec3(0,-150,0));
-                inner_teapot.add(inner_tri);
-            }
-            point_cnt = 0;
-        }
+        vec3 u = pos[1] - pos[0];
+        vec3 v = pos[2] - pos[0];
+        vec3 face_norm = normalize(cross(u, v));
+        vec3 avg_vertex_norm = (norm[0] + norm[1] + norm[2]) / 3;
+        face_norm = (dot(face_norm, avg_vertex_norm) > 0.0f)? face_norm : -face_norm;
+        shared_ptr<hittable> tri = make_shared<triangle>(pos[0], pos[1], pos[2], norm[0], norm[1], norm[2], face_norm, m);
+        teapot.add(tri);
     }
+
 	objects.add(make_shared<bvh_node>(teapot, 0, 0));
+    /*
     if(is_glass)
     {
 	    objects.add(make_shared<bvh_node>(inner_teapot, 0, 0));
     }
+    */
 }
 
 // Custom Properties
@@ -170,23 +173,25 @@ int main(int argc, char *argv[]) {
     // Arguments
     if(argc < 3)
     {
-        std::cerr << "usage: ./a.out samples_per_pixel number_of_teapot [teapot file names] [teapots' materials]\n";
+        std::cerr << "usage: ./a.out samples_per_pixel n [pos_mat norm_mat material] * n\n";
         std::cerr << "materials: (0) metal; (1) glass; (2) diffuse material\n";
         return -1;
     }
     samples_per_pixel = atoi(argv[1]);
     int number_of_teapot = atoi(argv[2]);
-    if(argc - 3 !=  2 * number_of_teapot)
+    if(argc - 3 !=  3 * number_of_teapot)
     {
         std::cerr << "number of file and material does not match\n";
         return -1;
     }
-    std::vector<std::ifstream> teapot_files(number_of_teapot);
-    std::vector<int> teapot_materials(number_of_teapot);
+    mat4 pos_matices[number_of_teapot];
+    mat3 norm_matices[number_of_teapot];
+    int teapot_materials[number_of_teapot];
     for(int i = 0; i < number_of_teapot; i++)
     {
-        teapot_files[i].open(argv[3 + i]);
-        teapot_materials[i] = atoi(argv[3 + number_of_teapot + i]);
+        create_mat4(pos_matices[i], argv[3 + 3 * i]);
+        create_mat3(norm_matices[i], argv[3 + 3 * i + 1]);
+        teapot_materials[i] = atoi(argv[3 + 3 * i + 2]);
     }
 
     // World
@@ -195,20 +200,44 @@ int main(int argc, char *argv[]) {
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
 
+    // Teapot
+    load_teapot();
+
+    /*
     world.add(make_shared<yz_rect>(-278, 278, -300, 255,  278, green));
     world.add(make_shared<yz_rect>(-278, 278, -300, 255, -278,   red));
     world.add(make_shared<xz_rect>( -65,  65, -123,  82,  266, light));
     world.add(make_shared<xz_rect>(-278, 278, -300, 255,  278, white));
     world.add(make_shared<xz_rect>(-278, 278, -300, 255, -278, white));
     world.add(make_shared<xy_rect>(-278, 278, -278, 278,  255, white));
+    */
+    world.add(make_shared<yz_rect>(-100, 100, -300,    0, -100, green));
+    world.add(make_shared<yz_rect>(-100, 100, -300,    0,  100,   red));
+    world.add(make_shared<xz_rect>( -25,  25, -175, -125,   96, light));
+    world.add(make_shared<xz_rect>(-100, 100, -300,    0,  100, white));
+    world.add(make_shared<xz_rect>(-100, 100, -300,    0, -100, white));
+    world.add(make_shared<xy_rect>(-100, 100, -100,  100, -200, white));
+
+    //world.add(make_shared<sphere>(point3(0, 0, -100), 10, light));
+    /*
+    world.add(make_shared<triangle>(point3(-30, 0, -150),
+                                    point3( 30, 0, -150),
+                                    point3(  0,30, -150),
+                                    vec3(0,0,1),
+                                    vec3(0,0,1),
+                                    vec3(0,0,1),
+                                    vec3(0,0,1),
+                                    red));
+    */
+
     for(int i = 0; i < number_of_teapot; i++)
     {
-        add_teapot(world, teapot_files[i], materials[teapot_materials[i]]);
+        add_teapot(world, pos_matices[i], norm_matices[i], materials[teapot_materials[i]]);
     }
 
     // Camera
-    point3 lookfrom = point3(0, 0, -800);
-    point3 lookat = point3(0, 0, 0);
+    point3 lookfrom = point3(0, 0, 200);
+    point3 lookat = point3(0, 0, -400);
     auto vfov = 40.0;
     auto aperture = 0.0;
     background = color(0.0,0.0,0.0);

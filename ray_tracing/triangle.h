@@ -13,8 +13,8 @@ class triangle : public hittable
 {
     public:
         triangle() {}
-        triangle(point3 a, point3 b, point3 c, vec3 norm, shared_ptr<material> m)  
-            : a(a), b(b), c(c), normal(normalize(norm)), mat_ptr(m) {};
+        triangle(point3 a, point3 b, point3 c, vec3 n_a, vec3 n_b, vec3 n_c, vec3 norm, shared_ptr<material> m)  
+            : a(a), b(b), c(c), n_a(n_a), n_b(n_b), n_c(n_c), norm(norm), mat_ptr(m) {};
         virtual bool hit(const ray &r, double t_min, double t_max, hit_record &rec) const override;
 
         virtual bool bounding_box(double time0, double time1, aabb& output_box) const override {
@@ -35,7 +35,10 @@ class triangle : public hittable
         point3 a;
         point3 b;
         point3 c;
-        vec3 normal;
+        vec3 n_a;
+        vec3 n_b;
+        vec3 n_c;
+        vec3 norm;
         shared_ptr<material> mat_ptr;
 };
 
@@ -45,8 +48,8 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     // intersect ray with plane
     vec3   u = b - a;
     vec3   v = c - a;
-    double d = - dot(a, normal);
-    double t = - (dot(r.origin(), normal) + d) / dot(r.direction(), normal);
+    double d = - dot(a, norm);
+    double t = - (dot(r.origin(), norm) + d) / dot(r.direction(), norm);
     point3 P = r.origin() + t * r.direction();
 
     if(t < t_min || t > t_max)
@@ -77,7 +80,6 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
 
     rec.p = P;
     rec.t = t;
-    rec.set_face_normal(r, normal);
     rec.mat_ptr = mat_ptr;
 
     // calculate u, v by Barycentric coordinated
@@ -87,12 +89,20 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     vec3 tmp;
     tmp = cross(a - b, a - c);
     double a = sqrt(dot(tmp, tmp));
+    tmp = cross(f2, f3);
+    double a1 = sqrt(dot(tmp, tmp)) / a;
     tmp = cross(f3, f1);
     double a2 = sqrt(dot(tmp, tmp)) / a;
     tmp = cross(f1, f2);
     double a3 = sqrt(dot(tmp, tmp)) / a;
     rec.u = a2;
     rec.v = a3;
+
+    vec3 normal = a1 * n_a + a2 * n_b + a3 * n_c;
+    rec.set_face_normal(r, normal);
+    //rec.set_face_normal(r, norm);
+
+    //std::cerr << "hit triangle\n" << std::flush;
 
     return true;
 }
