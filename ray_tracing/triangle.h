@@ -45,6 +45,40 @@ class triangle : public hittable
 
 bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) const
 {
+
+/*
+    // Moller-Trumbore
+    vec3 E1 = b - a;
+    vec3 E2 = c - a;
+    vec3 P = cross(r.direction(), E2);
+    double det = dot(P, E1);
+
+    if(det < 0.0001)
+        return false;
+
+    double inv = 1 / det;
+    vec3 T = r.origin() - a;
+    double u = inv * dot(P, T);
+    if(u < 0 || u > 1)
+        return false;
+
+    vec3 Q = cross(T, E1);
+    double v = inv * dot(Q, r.direction());
+    if(v < 0 || u + v > 1)
+        return false;
+
+    double t = inv * dot(Q, E2);
+
+    rec.p = r.origin() + t * r.direction();
+    rec.t = t;
+    rec.mat_ptr = mat_ptr;
+    //vec3 normal = normalize((1 - u - v) * n_a + u * n_b + v * n_c);
+    //rec.set_face_normal(r, normal);
+    rec.set_face_normal(r, norm);
+    //std::cerr << "hit triangle, norm:" << rec.normal << "\n" << std::flush;
+    return true;
+*/
+
     // intersect ray with plane
     vec3   u = b - a;
     vec3   v = c - a;
@@ -56,60 +90,34 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
         return false;
 
     // check if point P is inside the triangle
-    /*
     vec3 V_1;
     vec3 V_2;
     vec3 N_1;
-
     V_1 = a - P;
     V_2 = b - P;
     N_1 = cross(V_2, V_1);
     if(dot(r.direction(), N_1) < 0)
         return false;
-
     V_1 = b - P;
     V_2 = c - P;
     N_1 = cross(V_2, V_1);
     if(dot(r.direction(), N_1) < 0)
         return false;
-
     V_1 = c - P;
     V_2 = a - P;
     N_1 = cross(V_2, V_1);
     if(dot(r.direction(), N_1) < 0)
         return false;
-    */
-
-
-    // calculate u, v by Barycentric coordinated
-    vec3 f1  = a - P;
-    vec3 f2  = b - P;
-    vec3 f3  = c - P;
-    vec3 tmp;
-    tmp = cross(a - b, a - c);
-    double a = sqrt(dot(tmp, tmp));
-    tmp = cross(f2, f3);
-    double a1 = sqrt(dot(tmp, tmp)) / a;
-    tmp = cross(f3, f1);
-    double a2 = sqrt(dot(tmp, tmp)) / a;
-    tmp = cross(f1, f2);
-    double a3 = sqrt(dot(tmp, tmp)) / a;
-    rec.u = a2;
-    rec.v = a3;
-
-    if(!(0 <= a1 && a1 <= 1 && 0 <= a2 && a2 <= 1 && a1 + a2 <= 1))
-    {
-        return false;
-    }
 
     rec.p = P;
     rec.t = t;
     rec.mat_ptr = mat_ptr;
-    vec3 normal = a1 * n_a + a2 * n_b + a3 * n_c;
-    rec.set_face_normal(r, normal);
-    //rec.set_face_normal(r, norm);
+    //vec3 normal = a1 * n_a + a2 * n_b + a3 * n_c;
+    //rec.set_face_normal(r, normal);
+    rec.set_face_normal(r, norm);
 
-    //std::cerr << "hit triangle\n" << std::flush;
+    //std::cerr << "hit triangle, norm:" << rec.normal << "\n" << std::flush;
+
     return true;
 }
 

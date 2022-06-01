@@ -76,52 +76,70 @@ void load_teapot()
         std::array<double, 3> norm;
         sscanf(line.c_str(), "%lf %lf %lf %lf %lf %lf", &pos[0], &pos[1], &pos[2], &norm[0], &norm[1], &norm[2]);
         pos[3] = 1.0;
-        //std::cerr << pos[0] << ", " << pos[1] << ", " << pos[2] << ", " << norm[0] << ", " << norm[1] << ", " << norm[2] << "\n";
         teapot_pos.push_back(pos);
         teapot_norm.push_back(norm);
     }
     teapot_vertex_cnt = teapot_pos.size();
-    //std::cerr << "vertex num: " << teapot_vertex_cnt << "\n";
 }
 
 void add_teapot(hittable_list& objects, mat4 pos_mat, mat3 norm_mat, shared_ptr<material> m) {
 
 	hittable_list teapot;
-    //hittable_list inner_teapot; // for glass
-    //print_mat4(pos_mat);
-    //print_mat3(norm_mat);
+    // for glass
+    hittable_list inner_teapot; 
+    bool is_glass = (m == my_glass);
 
     for(int i = 0; i < teapot_vertex_cnt / 3; i++)
     {
         vec3 pos[3];
         vec3 norm[3];
+        vec3 inner_pos[3];
         for(int j = 0; j < 3; j++)
         {
             std::array<double, 4> new_pos;
             mat4_mul(pos_mat, teapot_pos[i * 3 + j], new_pos);
-            //std::cerr << "old pos:" << teapot_pos[i][0] << ", " << teapot_pos[i][1] << ", " << teapot_pos[i][2] << "\n";
-            //std::cerr << "new pos:" << new_pos[0] << ", " << new_pos[1] << ", " << new_pos[2] << "\n";
             std::array<double, 3> new_norm;
             mat3_mul(norm_mat, teapot_norm[i * 3 + j], new_norm);
+
             pos[j] = point3(new_pos[0], new_pos[1], new_pos[2]);
             norm[j] = vec3(new_norm[0], new_norm[1], new_norm[2]);
+            norm[j] = normalize(norm[j]);
+            if(is_glass)
+            {
+                double inner_mat[4][4];
+                for(int k = 0; k < 4; k++)
+                    for(int l = 0; l < 4; l++)
+                        inner_mat[k][l] = pos_mat[k][l];
+                for(int k = 0; k < 4; k++)
+                    inner_mat[k][k] *= 0.95;
+                mat4_mul(inner_mat, teapot_pos[i * 3 + j], new_pos);
+                inner_pos[j] = point3(new_pos[0], new_pos[1], new_pos[2]);
+            }
         }
         vec3 u = pos[1] - pos[0];
         vec3 v = pos[2] - pos[0];
         vec3 face_norm = normalize(cross(u, v));
         vec3 avg_vertex_norm = (norm[0] + norm[1] + norm[2]) / 3;
         face_norm = (dot(face_norm, avg_vertex_norm) > 0.0f)? face_norm : -face_norm;
-        shared_ptr<hittable> tri = make_shared<triangle>(pos[0], pos[1], pos[2], norm[0], norm[1], norm[2], face_norm, m);
+        shared_ptr<hittable> tri = make_shared<triangle>(pos[0], pos[1], pos[2],
+                                                         norm[0], norm[1], norm[2],
+                                                         face_norm, m);
         teapot.add(tri);
+
+        if(is_glass)
+        {
+            shared_ptr<hittable> inner_tri = make_shared<triangle>(inner_pos[0], inner_pos[1], inner_pos[2],
+                                                                   -norm[0], -norm[1], -norm[2],
+                                                                   -face_norm, m);
+            inner_teapot.add(inner_tri);
+        }
     }
 
 	objects.add(make_shared<bvh_node>(teapot, 0, 0));
-    /*
     if(is_glass)
     {
 	    objects.add(make_shared<bvh_node>(inner_teapot, 0, 0));
     }
-    */
 }
 
 // Custom Properties
@@ -152,7 +170,6 @@ void *render_thread(void *argv)
     int max_width = range[2];
     int max_height = range[3];
     for (int j = max_height-1; j >= min_height; --j) {
-        //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
         for (int i = min_width; i < max_width; ++i) {
             color pixel_color(0,0,0);
             for (int s = 0; s < samples_per_pixel; ++s) {
@@ -203,14 +220,6 @@ int main(int argc, char *argv[]) {
     // Teapot
     load_teapot();
 
-    /*
-    world.add(make_shared<yz_rect>(-278, 278, -300, 255,  278, green));
-    world.add(make_shared<yz_rect>(-278, 278, -300, 255, -278,   red));
-    world.add(make_shared<xz_rect>( -65,  65, -123,  82,  266, light));
-    world.add(make_shared<xz_rect>(-278, 278, -300, 255,  278, white));
-    world.add(make_shared<xz_rect>(-278, 278, -300, 255, -278, white));
-    world.add(make_shared<xy_rect>(-278, 278, -278, 278,  255, white));
-    */
     world.add(make_shared<yz_rect>(-100, 100, -300,    0, -100, green));
     world.add(make_shared<yz_rect>(-100, 100, -300,    0,  100,   red));
     world.add(make_shared<xz_rect>( -25,  25, -175, -125,   96, light));
@@ -218,16 +227,15 @@ int main(int argc, char *argv[]) {
     world.add(make_shared<xz_rect>(-100, 100, -300,    0, -100, white));
     world.add(make_shared<xy_rect>(-100, 100, -100,  100, -200, white));
 
-    //world.add(make_shared<sphere>(point3(0, 0, -100), 10, light));
     /*
-    world.add(make_shared<triangle>(point3(-30, 0, -150),
-                                    point3( 30, 0, -150),
-                                    point3(  0,30, -150),
-                                    vec3(0,0,1),
-                                    vec3(0,0,1),
-                                    vec3(0,0,1),
-                                    vec3(0,0,1),
-                                    red));
+    world.add(make_shared<triangle>(point3(-30, -50, -100),
+                                    point3( 30, -50, -100),
+                                    point3(  0, -50, -170),
+                                    vec3(0,1,0),
+                                    vec3(0,1,0),
+                                    vec3(0,1,0),
+                                    vec3(0,1,0),
+                                    light));
     */
 
     for(int i = 0; i < number_of_teapot; i++)
@@ -268,18 +276,14 @@ int main(int argc, char *argv[]) {
             pthread_create(&render_workers[idx], NULL, render_thread, (void *)range[idx]);
         }
     }
+
     for(int i = 0; i < 16; i++)
-    {
         pthread_join(render_workers[i], NULL);
-    }
+
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
     for (int j = image_height-1; j >= 0; --j) 
-    {
         for (int i = 0; i < image_width; ++i) 
-        {
             std::cout << pixels[i][j];
-        }
-    }
 
     std::cerr << "\nDone.\n";
 }
