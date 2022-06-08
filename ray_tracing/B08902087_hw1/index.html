@@ -1,0 +1,1024 @@
+<html>
+
+<head>
+<title>ICG WebGL &mdash; HW1</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<!-- CSS only -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+<script type="text/javascript" src="./js/glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="./js/webgl-utils.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script id="fragmentShader-flat" type="fragment">
+    #extension GL_OES_standard_derivatives : enable
+    precision mediump float;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec4 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        vec3 N = normalize(cross(dFdx(vPosition), dFdy(vPosition)));
+
+        vec3 admbientColor = fragcolor.xyz;
+        vec3 diffuseColor = fragcolor.xyz;
+
+        // ambient reflection
+        vec3 ambient = uKa * admbientColor;
+
+        // diffuse reflection 
+        float light1Distance = dot(uLightPosition1 - vPosition, uLightPosition1 - vPosition) / 10000.0;
+        vec3 light1Direction = normalize(uLightPosition1 - vPosition);
+        float cosineLight1Angle = max(dot(light1Direction, N), 0.0);
+        vec3 light1Diff = uKd * cosineLight1Angle * diffuseColor * uLightColor1 / light1Distance;
+
+        float light2Distance = dot(uLightPosition2 - vPosition, uLightPosition2 - vPosition) / 10000.0;
+        vec3 light2Direction = normalize(uLightPosition2- vPosition);
+        float cosineLight2Angle = max(dot(light2Direction, N), 0.0);
+        vec3 light2Diff = uKd * cosineLight2Angle * diffuseColor * uLightColor2 / light2Distance;
+
+        float light3Distance = dot(uLightPosition3 - vPosition, uLightPosition3 - vPosition) / 10000.0;
+        vec3 light3Direction = normalize(uLightPosition3 - vPosition);
+        float cosineLight3Angle = max(dot(light3Direction, N), 0.0);
+        vec3 light3Diff = uKd * cosineLight3Angle * diffuseColor * uLightColor3 / light3Distance;
+
+        // specular reflection
+        vec3 light1ReflecVec = normalize(reflect(-light1Direction, N));
+        float specular1 = pow(max(dot(normalize(light1ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth1Specular = uKs * specular1 * uLightColor1 / light1Distance;
+
+        vec3 light2ReflecVec = normalize(reflect(-light2Direction, N));
+        float specular2 = pow(max(dot(normalize(light2ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth2Specular = uKs * specular2 * uLightColor2 / light2Distance;
+
+        vec3 light3ReflecVec = normalize(reflect(-light3Direction, N));
+        float specular3 = pow(max(dot(normalize(light3ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth3Specular = uKs * specular3 * uLightColor3 / light3Distance;
+
+        vec3 sumColor = ambient + light1Diff + light2Diff + light3Diff + ligth1Specular + ligth2Specular + ligth3Specular;
+
+        gl_FragColor = vec4(sumColor, 1.0);
+    }
+</script>
+
+<script id="vertexShader-flat" type="vertex">
+    #extension GL_OES_standard_derivatives : enable
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec4 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        fragcolor = vec4(aFrontColor.rgb, 1.0);
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vPosition = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+    }
+</script>
+
+<script id="fragmentShader-gouraud" type="fragment">
+    #extension GL_OES_standard_derivatives : enable
+    precision mediump float;
+
+	varying vec4 fragcolor;
+
+    void main(void) {
+        gl_FragColor = fragcolor;
+    }
+</script>
+
+<script id="vertexShader-gouraud" type="vertex">
+    #extension GL_OES_standard_derivatives : enable
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+
+    void main(void) {
+        vec3 vNormal = normalize(uNormalMatrix * aVertexNormal);
+        vec3 vPosition = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+
+        vec3 admbientColor = aFrontColor; 
+        vec3 diffuseColor = aFrontColor;
+
+        // ambient reflection
+        vec3 ambient = uKa * admbientColor;
+
+        // diffuse reflection 
+        float light1Distance = dot(uLightPosition1 - vPosition, uLightPosition1 - vPosition) / 10000.0;
+        vec3 light1Direction = normalize(uLightPosition1 - vPosition);
+        float cosineLight1Angle = max(dot(light1Direction, vNormal), 0.0);
+        vec3 light1Diff = uKd * cosineLight1Angle * diffuseColor * uLightColor1 / light1Distance;
+
+        float light2Distance = dot(uLightPosition2 - vPosition, uLightPosition2 - vPosition) / 10000.0;
+        vec3 light2Direction = normalize(uLightPosition2- vPosition);
+        float cosineLight2Angle = max(dot(light2Direction, vNormal), 0.0);
+        vec3 light2Diff = uKd * cosineLight2Angle * diffuseColor * uLightColor2 / light2Distance;
+
+        float light3Distance = dot(uLightPosition3 - vPosition, uLightPosition3 - vPosition) / 10000.0;
+        vec3 light3Direction = normalize(uLightPosition3 - vPosition);
+        float cosineLight3Angle = max(dot(light3Direction, vNormal), 0.0);
+        vec3 light3Diff = uKd * cosineLight3Angle * diffuseColor * uLightColor3 / light3Distance;
+
+        // specular reflection
+        vec3 light1ReflecVec = normalize(reflect(-light1Direction, vNormal));
+        float specular1 = pow(max(dot(normalize(light1ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth1Specular = uKs * specular1 * uLightColor1 / light1Distance;
+
+        vec3 light2ReflecVec = normalize(reflect(-light2Direction, vNormal));
+        float specular2 = pow(max(dot(normalize(light2ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth2Specular = uKs * specular2 * uLightColor2 / light2Distance;
+
+        vec3 light3ReflecVec = normalize(reflect(-light3Direction, vNormal));
+        float specular3 = pow(max(dot(normalize(light3ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth3Specular = uKs * specular3 * uLightColor3 / light3Distance;
+
+        vec3 sumColor = ambient + light1Diff + light2Diff + light3Diff + ligth1Specular + ligth2Specular + ligth3Specular;
+
+        fragcolor = vec4(sumColor, 1.0);
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+
+<script id="fragmentShader-phong" type="fragment">
+    #extension GL_OES_standard_derivatives : enable
+    precision mediump float;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec3 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        vec3 admbientColor = fragcolor.xyz; 
+        vec3 diffuseColor = fragcolor.xyz;
+
+        // ambient reflection
+        vec3 ambient = uKa * admbientColor;
+
+        // diffuse reflection 
+        float light1Distance = dot(uLightPosition1 - vPosition, uLightPosition1 - vPosition) / 10000.0;
+        vec3 light1Direction = normalize(uLightPosition1 - vPosition);
+        float cosineLight1Angle = max(dot(light1Direction, vNormal), 0.0);
+        vec3 light1Diff = uKd * cosineLight1Angle * diffuseColor * uLightColor1 / light1Distance;
+
+        float light2Distance = dot(uLightPosition2 - vPosition, uLightPosition2 - vPosition) / 10000.0;
+        vec3 light2Direction = normalize(uLightPosition2- vPosition);
+        float cosineLight2Angle = max(dot(light2Direction, vNormal), 0.0);
+        vec3 light2Diff = uKd * cosineLight2Angle * diffuseColor * uLightColor2 / light2Distance;
+
+        float light3Distance = dot(uLightPosition3 - vPosition, uLightPosition3 - vPosition) / 10000.0;
+        vec3 light3Direction = normalize(uLightPosition3 - vPosition);
+        float cosineLight3Angle = max(dot(light3Direction, vNormal), 0.0);
+        vec3 light3Diff = uKd * cosineLight3Angle * diffuseColor * uLightColor3 / light3Distance;
+
+        // specular reflection
+        vec3 light1ReflecVec = normalize(reflect(-light1Direction, vNormal));
+        float specular1 = pow(max(dot(normalize(light1ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth1Specular = uKs * specular1 * uLightColor1 / light1Distance;
+
+        vec3 light2ReflecVec = normalize(reflect(-light2Direction, vNormal));
+        float specular2 = pow(max(dot(normalize(light2ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth2Specular = uKs * specular2 * uLightColor2 / light2Distance;
+
+        vec3 light3ReflecVec = normalize(reflect(-light3Direction, vNormal));
+        float specular3 = pow(max(dot(normalize(light3ReflecVec), - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth3Specular = uKs * specular3 * uLightColor3 / light3Distance;
+
+        vec3 sumColor = ambient + light1Diff + light2Diff + light3Diff + ligth1Specular + ligth2Specular + ligth3Specular;
+
+        gl_FragColor = vec4(sumColor, 1.0);
+    }
+</script>
+
+<script id="vertexShader-phong" type="vertex">
+    #extension GL_OES_standard_derivatives : enable
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec3 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        fragcolor = vec4(aFrontColor.rgb, 1.0);
+        vNormal = normalize(uNormalMatrix * aVertexNormal);
+        vPosition = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+
+<script id="fragmentShader-blinn-phong" type="fragment">
+    #extension GL_OES_standard_derivatives : enable
+    precision mediump float;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec3 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        vec3 admbientColor = fragcolor.xyz; 
+        vec3 diffuseColor = fragcolor.xyz;
+
+        vec3 viewVec = normalize(-vPosition);
+
+        // ambient reflection
+        vec3 ambient = uKa * admbientColor;
+
+        // diffuse reflection 
+        float light1Distance = dot(uLightPosition1 - vPosition, uLightPosition1 - vPosition) / 10000.0;
+        vec3 light1Direction = normalize(uLightPosition1 - vPosition);
+        float cosineLight1Angle = max(dot(light1Direction, vNormal), 0.0);
+        vec3 light1Diff = uKd * cosineLight1Angle * diffuseColor * uLightColor1 / light1Distance;
+
+        float light2Distance = dot(uLightPosition2 - vPosition, uLightPosition2 - vPosition) / 10000.0;
+        vec3 light2Direction = normalize(uLightPosition2- vPosition);
+        float cosineLight2Angle = max(dot(light2Direction, vNormal), 0.0);
+        vec3 light2Diff = uKd * cosineLight2Angle * diffuseColor * uLightColor2 / light2Distance;
+
+        float light3Distance = dot(uLightPosition3 - vPosition, uLightPosition3 - vPosition) / 10000.0;
+        vec3 light3Direction = normalize(uLightPosition3 - vPosition);
+        float cosineLight3Angle = max(dot(light3Direction, vNormal), 0.0);
+        vec3 light3Diff = uKd * cosineLight3Angle * diffuseColor * uLightColor3 / light3Distance;
+
+        // specular reflection
+        vec3 light1HalfVec = normalize(light1Direction + viewVec);
+        float specular1 = pow(max(dot(light1HalfVec, - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth1Specular = uKs * specular1 * uLightColor1 / light1Distance;
+
+        vec3 light2HalfVec = normalize(light2Direction + viewVec);
+        float specular2 = pow(max(dot(light2HalfVec, - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth2Specular = uKs * specular2 * uLightColor2 / light2Distance;
+
+        vec3 light3HalfVec = normalize(light3Direction + viewVec);
+        float specular3 = pow(max(dot(light3HalfVec, - normalize(vPosition)), 0.0), uShininess);
+        vec3 ligth3Specular = uKs * specular3 * uLightColor3 / light3Distance;
+
+        vec3 sumColor = ambient + light1Diff + light2Diff + light3Diff + ligth1Specular + ligth2Specular + ligth3Specular;
+
+        gl_FragColor = vec4(sumColor, 1.0);
+    }
+</script>
+
+<script id="vertexShader-blinn-phong" type="vertex">
+    #extension GL_OES_standard_derivatives : enable
+    attribute vec3 aVertexPosition;
+    attribute vec3 aFrontColor;
+    attribute vec3 aVertexNormal;
+
+    uniform vec3 uLightPosition1;
+    uniform vec3 uLightPosition2;
+    uniform vec3 uLightPosition3;
+
+    uniform vec3 uLightColor1;
+    uniform vec3 uLightColor2;
+    uniform vec3 uLightColor3;
+
+    uniform float uKa;
+    uniform float uKd;
+    uniform float uKs;
+    uniform float uShininess;
+
+    uniform mat4 uPMatrix;
+    uniform mat4 uMVMatrix;
+    uniform mat3 uNormalMatrix;
+
+	varying vec4 fragcolor;
+	varying vec3 vNormal;
+	varying vec3 vPosition;
+
+    void main(void) {
+        fragcolor = vec4(aFrontColor.rgb, 1.0);
+        vNormal = normalize(uNormalMatrix * aVertexNormal);
+        vPosition = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+
+<script type="text/javascript">
+    // common variables
+    var gl;
+
+    var mvMatrix = mat4.create();
+    var pMatrix  = mat4.create();
+    var normalMatrix = mat3.create();
+
+    var lastTime = [0, 0, 0];
+
+    var lightsConfig = {
+        "light1" : {pos : [0, 100, -150], color : [1.0, 1.0, 1.0] }, 
+        "light2" : {pos : [ 0.0, 200.0, 0.0], color : [0, 0, 0] },
+        "light3" : {pos : [ 100.0, 80.0, 0.0], color : [0, 0, 0] },
+    };
+
+    var modelsBuffer = {}; 
+
+    var shaderMap = {};
+
+    var renderData = [];
+
+    var itemID = 1;
+    
+    var num_sample = 10;
+
+    var modelsConfig = {
+        "item-1" : { shader: "phong", model : "Teapot", scale: [1.0, 1.0, 1.0], pos: [0, 0, -80], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90, ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5, material : 0},
+        "wall_mid" : { shader: "phong", model : "wall_mid", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+        "wall_left" : { shader: "phong", model : "wall_left", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+        "wall_right" : { shader: "phong", model : "wall_right", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+        "wall_bottom" : { shader: "phong", model : "wall_bottom", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+        "wall_top" : { shader: "phong", model : "wall_top", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+        "fake_light" : { shader: "phong", model : "fake_light", scale: [1.0, 1.0, 1.0], pos: [0, 0, 0], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90,  ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5},
+    };
+
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+            gl.viewportWidth  = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } 
+        catch (e) {
+
+        }
+
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function oncahngeNumbSample(event) {
+        if (!isNaN(event.value)) {
+            num_sample = parseInt(event.value);
+        }
+    }
+
+    function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var shaderSource = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                shaderSource += k.textContent;
+            }
+
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } 
+        else if (shaderScript.type == "vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } 
+        else {
+            return null;
+        }
+
+        gl.shaderSource(shader, shaderSource);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+    function initShaders(shaderType) {
+        var fragmentShader = getShader(gl, `fragmentShader-${shaderType}`);
+        var vertexShader   = getShader(gl, `vertexShader-${shaderType}`);
+
+        let shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        shaderProgram.vertexFrontColorAttribute = gl.getAttribLocation(shaderProgram, "aFrontColor");
+        gl.enableVertexAttribArray(shaderProgram.vertexFrontColorAttribute);
+        shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+        gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
+        shaderProgram.lightPosition1 = gl.getUniformLocation(shaderProgram, "uLightPosition1");
+        shaderProgram.lightPosition2 = gl.getUniformLocation(shaderProgram, "uLightPosition2");
+        shaderProgram.lightPosition3 = gl.getUniformLocation(shaderProgram, "uLightPosition3");
+
+        shaderProgram.lightColor1 = gl.getUniformLocation(shaderProgram, "uLightColor1");
+        shaderProgram.lightColor2 = gl.getUniformLocation(shaderProgram, "uLightColor2");
+        shaderProgram.lightColor3 = gl.getUniformLocation(shaderProgram, "uLightColor3");
+
+        shaderProgram.Ka = gl.getUniformLocation(shaderProgram, "uKa");
+        shaderProgram.Kd = gl.getUniformLocation(shaderProgram, "uKd");
+        shaderProgram.Ks = gl.getUniformLocation(shaderProgram, "uKs");
+        shaderProgram.shininess = gl.getUniformLocation(shaderProgram, "uShininess");
+
+        shaderProgram.pMatrixUniform  = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "uNormalMatrix");
+
+        return shaderProgram;
+    }
+
+    function setMatrixUniforms(shaderProgram) {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+        gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
+    }
+
+    function degToRad(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    function handleLoadedModel(modelData, modelName) {
+        let modelVertexPositionBuffer;
+        let modelVertexNormalBuffer;
+        let modelVertexFrontColorBuffer;
+        
+        modelVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexPositions), gl.STATIC_DRAW);
+        modelVertexPositionBuffer.itemSize = 3;
+        modelVertexPositionBuffer.numItems = modelData.vertexPositions.length / 3;
+
+        modelVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexNormals), gl.STATIC_DRAW);
+        modelVertexNormalBuffer.itemSize = 3;
+        modelVertexNormalBuffer.numItems = modelData.vertexNormals.length / 3;
+
+        modelVertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexFrontcolors), gl.STATIC_DRAW);
+        modelVertexFrontColorBuffer.itemSize = 3;
+        modelVertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
+
+        modelsBuffer[modelName] = {
+            VertexPositionBuffer: modelVertexPositionBuffer,
+            VertexNormalBuffer: modelVertexNormalBuffer,
+            VertexFrontColorBuffer: modelVertexFrontColorBuffer,
+
+            originVertexPostion: modelData.vertexPositions,
+            originVertexNormals: modelData.vertexNormals
+        }
+    }
+
+    function loadModel(modelName) {
+        var request = new XMLHttpRequest();
+        request.open("GET", `./model/${modelName}.json`);
+        request.onreadystatechange = function () {
+            if (request.readyState == 4) {
+                handleLoadedModel(JSON.parse(request.responseText), modelName);
+            }
+        }
+        request.send();
+    }
+
+    /*
+        TODO HERE:
+        add two or more objects showing on the canvas
+        (it needs at least three objects showing at the same time)
+    */
+    function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        let allKeys = Object.keys(modelsConfig);
+        let tmpRenderData = {}
+        let curr_renderData = []
+
+        for (let i = 0; i < Object.keys(modelsConfig).length; i++) {
+            let modelName = modelsConfig[allKeys[i]].model;
+            
+            if (!modelsBuffer.hasOwnProperty(modelName)) {
+                if (modelName !== "none") {
+                    handleLoadedModel(loadModel(modelName));
+                }
+                continue;
+            }
+
+            if (modelsBuffer[modelName].VertexFrontColorBuffer == null || 
+                modelsBuffer[modelName].VertexNormalBuffer == null || 
+                modelsBuffer[modelName].VertexPositionBuffer == null) {
+                return;
+            }
+            
+
+            let VertexFrontColorBuffer = modelsBuffer[modelName].VertexFrontColorBuffer;
+            let VertexNormalBuffer = modelsBuffer[modelName].VertexNormalBuffer;
+            let VertexPositionBuffer = modelsBuffer[modelName].VertexPositionBuffer;
+            let shaderProgram = shaderMap[modelsConfig[allKeys[i]].shader];
+
+            gl.useProgram(shaderProgram);
+
+            // Setup Projection Matrix
+            mat4.perspective(60, gl.viewportWidth / gl.viewportHeight, 1.0, 1000.0, pMatrix);
+
+            // Setup Model-View Matrix
+            mat4.identity(mvMatrix);
+            mat4.translate(mvMatrix, modelsConfig[allKeys[i]].pos);
+            mat4.scale(mvMatrix, modelsConfig[allKeys[i]].scale);
+            mat4.rotate(mvMatrix, degToRad(modelsConfig[allKeys[i]].rotateDegree), modelsConfig[allKeys[i]].rotateAxis);
+
+            // Setup Shear Matrix
+            let shearMatrix = mat4.create();
+            mat4.identity(shearMatrix);
+            shearMatrix[4] = 1 / Math.tan(degToRad(modelsConfig[allKeys[i]].shearDegree));
+            mat4.multiply(mvMatrix, shearMatrix, mvMatrix);
+
+            // Setup Normal Matrix
+            mat3.identity(normalMatrix);
+            mat4.toInverseMat3(mvMatrix, normalMatrix);
+            mat3.transpose(normalMatrix,normalMatrix);
+            
+            let mirrorMVMat = mat4.create()
+            let copy_tran = Array.from(modelsConfig[allKeys[i]].pos);
+            let copy_scale = Array.from(modelsConfig[allKeys[i]].scale);
+            for (let k = 0; k < copy_scale.length; k++) {
+                copy_scale[k] = 2.3 * copy_scale[k];
+                copy_tran[k] = 2 * copy_tran[k];
+            }
+            mat4.identity(mirrorMVMat);
+            mat4.translate(mirrorMVMat, copy_tran);
+            mat4.scale(mirrorMVMat, copy_scale);
+            mat4.rotate(mirrorMVMat, degToRad(modelsConfig[allKeys[i]].rotateDegree), modelsConfig[allKeys[i]].rotateAxis);
+
+            // Setup Shear Matrix
+            let mirrorShearMatrix = mat4.create();
+            let mirrorNormalMatrix = mat3.create();
+            mat4.identity(mirrorShearMatrix);
+            mirrorShearMatrix[4] = 1 / Math.tan(degToRad(modelsConfig[allKeys[i]].shearDegree));
+            mat4.multiply(mirrorMVMat, mirrorShearMatrix, mirrorMVMat);
+
+            // Setup Normal Matrix
+            mat3.identity(mirrorNormalMatrix);
+            mat4.toInverseMat3(mirrorMVMat, mirrorNormalMatrix);
+            mat3.transpose(mirrorNormalMatrix,mirrorNormalMatrix);
+            
+            if (!modelName.includes("wall") && modelName !== "fake_light") {
+                obj = {}
+                obj["mvMatrix"] = Array.from(mirrorMVMat);
+                obj["mvNormalMatrix"] = Array.from(mirrorNormalMatrix);
+                console.log(Array.from(normalMatrix));
+                obj["vertexPosition"] = modelsBuffer[modelName].originVertexPostion;
+                obj["vertexNormal"] = modelsBuffer[modelName].originVertexNormals;
+                obj["meterial"] = modelsConfig[allKeys[i]].material;
+                curr_renderData.push(obj)
+            }
+            
+            setMatrixUniforms(shaderProgram);
+
+            gl.uniform3fv(shaderProgram.lightPosition1, lightsConfig.light1.pos);
+            gl.uniform3fv(shaderProgram.lightPosition2, lightsConfig.light2.pos);
+            gl.uniform3fv(shaderProgram.lightPosition3, lightsConfig.light3.pos);
+            
+            gl.uniform3fv(shaderProgram.lightColor1, lightsConfig.light1.color);
+            gl.uniform3fv(shaderProgram.lightColor2, lightsConfig.light2.color);
+            gl.uniform3fv(shaderProgram.lightColor3, lightsConfig.light3.color);
+            
+            gl.uniform1f(shaderProgram.Ka, modelsConfig[allKeys[i]].ka);
+            gl.uniform1f(shaderProgram.Kd, modelsConfig[allKeys[i]].kd);
+            gl.uniform1f(shaderProgram.Ks, modelsConfig[allKeys[i]].ks);
+            gl.uniform1f(shaderProgram.shininess, modelsConfig[allKeys[i]].shininess);
+
+            // Setup position data
+            gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
+                                VertexPositionBuffer.itemSize, 
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+
+            // Setup front color data
+            gl.bindBuffer(gl.ARRAY_BUFFER, VertexFrontColorBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, 
+                                VertexFrontColorBuffer.itemSize, 
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+
+            // Setup normal data
+            gl.bindBuffer(gl.ARRAY_BUFFER, VertexNormalBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,
+                                VertexNormalBuffer.itemSize,
+                                gl.FLOAT, 
+                                false, 
+                                0, 
+                                0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+        }
+        tmpRenderData['renderData'] = curr_renderData;
+        tmpRenderData['samples_per_pixel'] = num_sample;
+        renderData = tmpRenderData;
+    }
+
+    function tick() {
+        requestAnimFrame(tick);
+        drawScene();
+    }
+
+    function renderGUI() {
+        let keys = Object.keys(modelsConfig);
+        let innerhtml = "";
+        for (let i = 0; i < keys.length; i++) {
+            if (keys[i].includes("item-")) {
+                const words = keys[i].split("-");
+                const itemID = words[1];
+                innerhtml += `<div class="w-3/5 mb-2">
+                <div class="bg-blue-500 text-white font-bold rounded-t px-4 py-2">
+                Teapot-${itemID}
+                </div>
+                <div class="flex border border-t-0 border-red-400 rounded-b bg-blue-100 px-4 py-3 text-blue-700">
+                    <div class="w-3/12 flex flex-wrap mr-3">
+                        <div class="md:flex md:items-center">
+                            <div >
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    x-pos:
+                                </label>
+                            </div>
+                            <div class="">
+                                <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-x-pos" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].pos[0]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>
+                            
+                        </div>
+                         <div class="md:flex md:items-center mt-2">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    y-pos:
+                                </label>
+                            </div>
+                            <div class="">
+                                    <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-y-pos" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].pos[1]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>  
+                        </div>
+                         <div class="md:flex md:items-center mt-2">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    z-pos:
+                                </label>
+                            </div>
+                            <div class="">
+                                    <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-z-pos" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].pos[2]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>  
+                        </div>
+                    </div>
+                    <div class="w-3/12 flex flex-wrap mr-3">
+                        <div class="md:flex md:items-center">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    x-scale:
+                                </label>
+                            </div>
+                            <div> 
+                                <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-x-scale" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].scale[0]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>
+                            
+                        </div>
+                         <div class="md:flex md:items-center mt-2">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    y-scale:
+                                </label>
+                            </div>
+                            <div>
+                                    <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-y-scale" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].scale[1]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>  
+                        </div>
+                         <div class="md:flex md:items-center mt-2">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    z-scale: 
+                                </label>
+                            </div>
+                            <div>
+                                    <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-z-scale" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].scale[2]}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>  
+                        </div>
+                    </div>
+                    <div class="w-3/12 flex flex-wrap mr-3">
+                         <div class="md:flex md:items-center mt-2">
+                            <div>
+                                <label class="block font-bold mr-2" for="inline-full-name">
+                                    y-rotate:
+                                </label>
+                            </div>
+                            <div>
+                                    <input class="bg-white-200 appearance-none border-2 border-blue-200 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-blue-500" 
+                                    id="item-${itemID}-y-rotate" 
+                                    type="text" 
+                                    value="${modelsConfig[`item-${itemID}`].rotateDegree}"
+                                    onchange="valueOnchange(this)"
+                                    >
+                            </div>  
+                        </div>
+                    </div>
+                    <div class="w-3/12 flex flex-wrap mr-3">
+                        <label for="item-1-material" class="block mb-2 text-sm font-medium text-blue-700">
+                            materials
+                        </label>
+                        <select id="item-${itemID}-material" 
+                                class="block p-2 mb-6 w-full text-sm text-blue-900 bg-blue-50 rounded-lg border border-blue-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-blue-700 dark:border-blue-600 blue:placeholder-blue-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                onchange="valueOnchange(this)"
+                                >
+                            <option value="0" ${ modelsConfig[`item-${itemID}`].material === 0 ? "selected" : null}>metal</option>
+                            <option value="1" ${ modelsConfig[`item-${itemID}`].material === 1 ? "selected" : null}>glass</option>
+                            <option value="2" ${ modelsConfig[`item-${itemID}`].material === 2 ? "selected" : null}>diffuse material</option>
+                        </select>
+                    </div>
+                </div>
+            </div>` 
+                
+            }
+            document.getElementById("setting-block").innerHTML = innerhtml;
+        }
+    }
+
+    function addTeapot(event) {
+        itemID += 1;
+        modelsConfig[`item-${itemID}`] = { shader: "phong", model : "Teapot", scale: [1.0, 1.0, 1.0], pos: [0, 0, -80], autorotate: true, rotateAxis : [0, 1, 0], rotateDegree : 0, shearDegree : 90, ka : 0.1, kd : 1.0, ks : 0.5, shininess : 5, material : 0};
+        renderGUI();
+    }
+
+    function valueOnchange(event) {
+       const words = event.id.split('-');
+       if (event.id.includes("pos")) {
+           let id = words[1];
+           let axis = words[2];
+           let idx = -1;
+           
+           if (axis === "x") {
+            idx = 0
+           } else if (axis === "y") {
+            idx = 1
+           } else {
+            idx = 2
+           }
+
+           if (!isNaN(event.value)) {
+                modelsConfig[`item-${id}`].pos[idx] = parseFloat(event.value);
+           }
+       } else if (event.id.includes("scale")) {
+           let id = words[1];
+           let axis = words[2];
+           let idx = -1;
+           
+           if (axis === "x") {
+            idx = 0
+           } else if (axis === "y") {
+            idx = 1
+           } else {
+            idx = 2
+           }
+
+           if (!isNaN(event.value)) {
+                modelsConfig[`item-${id}`].scale[idx] = parseFloat(event.value);
+           }
+       } else if (event.id.includes("rotate")) {
+           let id = words[1];
+           let axis = words[2];
+
+           if (!isNaN(event.value)) {
+                modelsConfig[`item-${id}`].rotateDegree = event.value;
+           }
+       } else if (event.id.includes("material")) {
+           let id = words[1];
+           modelsConfig[`item-${id}`].material = parseInt(event.value);
+        //    console.log(modelsConfig[`item-${id}`]); 
+       }
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("ICG-canvas");
+        canvas.getContext("webgl").getExtension('OES_standard_derivatives');
+
+        initGL(canvas);
+        shaderMap.flat = initShaders("flat");
+        shaderMap.gouraud = initShaders("gouraud");
+        shaderMap.phong = initShaders("phong");
+        shaderMap.blinnPhong = initShaders("blinn-phong");
+
+        loadModel("Teapot");
+
+        renderGUI();
+        
+        gl.clearColor(0.0, 0.2, 0.2, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthRange(0.0, 0.5);
+
+        tick();
+    }
+
+    function clickToRender() {
+        var render_bnt = document.getElementById("render-bnt");
+        render_bnt.setAttribute('disabled', '');
+        render_bnt.innerText = "Rendering";
+
+        fetch('http://127.0.0.1:5000/render', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(renderData)
+        }).then((res) => {
+            render_bnt.removeAttribute('disabled');
+            render_bnt.innerText = "Render";
+            return res.blob();
+        }).then((blob) => {
+            var file = window.URL.createObjectURL(blob);
+            window.location.assign(file);
+        }).catch((err) => {
+            render_bnt.removeAttribute('disabled');
+            render_bnt.innerText = "Render";
+        });
+    }
+</script>
+</head>
+
+<body onload="webGLStart();">
+    <div class="flex flex-wrap justify-center items-center">
+        <div class="mt-2 mb-2 w-full flex justify-center items-center">
+            <h1 class="text-3xl font-bold pt-8 lg:pt-0">ICG - Final project</h1>
+        </div>
+        <div class="w-full flex justify-center items-center">
+            <canvas id="ICG-canvas" style="border: none;" width="400" height="400"></canvas>
+        </div>
+        <div class="mt-3 w-full flex justify-center items-center">
+            <div class="w-2/5  flex justify-center items-center">
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                        id="username" 
+                        type="text" 
+                        value="10"
+                        placeholder="number of samples per pixel"
+                        onchange="oncahngeNumbSample(this)">
+            </div>
+            <div class="w-1/5  flex justify-center items-center">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-xl"
+                        onclick="addTeapot(this)">
+                    Add teapot
+                </button>
+            </div>
+        </div>
+        <div id="setting-block" class="mt-3 w-full flex flex-wrap justify-center items-center ">
+        </div>
+        <div class="mt-3 w-full flex flex-wrap justify-center items-center mb-3">
+            <button id="render-bnt" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-xl"
+                        onclick="clickToRender(this)">
+                    Render
+                </button>
+        </div>
+    </div>
+</body>
+
+</html>
