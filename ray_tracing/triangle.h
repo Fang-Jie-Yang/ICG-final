@@ -46,7 +46,6 @@ class triangle : public hittable
 bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) const
 {
 
-/*
     // Moller-Trumbore
     vec3 E1 = b - a;
     vec3 E2 = c - a;
@@ -69,16 +68,21 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
 
     double t = inv * dot(Q, E2);
 
+    if(t < t_min || t > t_max)
+        return false;
+
     rec.p = r.origin() + t * r.direction();
     rec.t = t;
     rec.mat_ptr = mat_ptr;
-    //vec3 normal = normalize((1 - u - v) * n_a + u * n_b + v * n_c);
-    //rec.set_face_normal(r, normal);
-    rec.set_face_normal(r, norm);
-    //std::cerr << "hit triangle, norm:" << rec.normal << "\n" << std::flush;
-    return true;
-*/
 
+    vec3 normal = normalize((1 - u - v) * n_a + u * n_b + v * n_c);
+    rec.set_face_normal(r, normal);
+
+    //rec.set_face_normal(r, norm);
+
+    return true;
+
+/*
     // intersect ray with plane
     vec3   u = b - a;
     vec3   v = c - a;
@@ -119,6 +123,7 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     //std::cerr << "hit triangle, norm:" << rec.normal << "\n" << std::flush;
 
     return true;
+*/
 }
 
 #endif
