@@ -13,39 +13,39 @@ class triangle : public hittable
 {
     public:
         triangle() {}
-        triangle(point3 a, point3 b, point3 c, vec3 n_a, vec3 n_b, vec3 n_c, vec3 norm, shared_ptr<material> m)  
+        triangle(point3 a, point3 b, point3 c, 
+                 vec3 n_a, vec3 n_b, vec3 n_c, 
+                 vec3 norm,
+                 shared_ptr<material> m) 
             : a(a), b(b), c(c), n_a(n_a), n_b(n_b), n_c(n_c), norm(norm), mat_ptr(m) {};
+
         virtual bool hit(const ray &r, double t_min, double t_max, hit_record &rec) const override;
+        virtual bool bounding_box(double time0, double time1, aabb& output_box) const override;
 
-        virtual bool bounding_box(double time0, double time1, aabb& output_box) const override {
-            //std::cerr << "hi, triangle" << "\n";
-            double x_max = max(a.x(), max(b.x(), c.x()));
-            double y_max = max(a.y(), max(b.y(), c.y()));
-            double z_max = max(a.z(), max(b.z(), c.z()));
-            double x_min = min(a.x(), min(b.x(), c.x()));
-            double y_min = min(a.y(), min(b.y(), c.y()));
-            double z_min = min(a.z(), min(b.z(), c.z()));
-
-            output_box = aabb(
-                vec3(x_min - 0.001, y_min - 0.001, z_min - 0.001),
-                vec3(x_max + 0.001, y_max + 0.001, z_max + 0.001));
-            return true;
-        }
     public:
-        point3 a;
-        point3 b;
-        point3 c;
-        vec3 n_a;
-        vec3 n_b;
-        vec3 n_c;
+        point3 a, b, c;
+        vec3 n_a, n_b, n_c;
         vec3 norm;
         shared_ptr<material> mat_ptr;
 };
 
+bool triangle::bounding_box(double time0, double time1, aabb& output_box) const
+{
+    double x_max = max(a.x(), max(b.x(), c.x()));
+    double y_max = max(a.y(), max(b.y(), c.y()));
+    double z_max = max(a.z(), max(b.z(), c.z()));
+    double x_min = min(a.x(), min(b.x(), c.x()));
+    double y_min = min(a.y(), min(b.y(), c.y()));
+    double z_min = min(a.z(), min(b.z(), c.z()));
+    output_box = aabb(
+        vec3(x_min - 0.001, y_min - 0.001, z_min - 0.001),
+        vec3(x_max + 0.001, y_max + 0.001, z_max + 0.001));
+    return true;
+}
+
 
 bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) const
 {
-
     // Moller-Trumbore
     vec3 E1 = b - a;
     vec3 E2 = c - a;
@@ -78,11 +78,10 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     vec3 normal = normalize((1 - u - v) * n_a + u * n_b + v * n_c);
     rec.set_face_normal(r, normal);
 
-    //rec.set_face_normal(r, norm);
-
     return true;
 
-/*
+/*  Algebraic Method
+
     // intersect ray with plane
     vec3   u = b - a;
     vec3   v = c - a;
@@ -116,11 +115,7 @@ bool triangle::hit(const ray &r, double t_min, double t_max, hit_record &rec) co
     rec.p = P;
     rec.t = t;
     rec.mat_ptr = mat_ptr;
-    //vec3 normal = a1 * n_a + a2 * n_b + a3 * n_c;
-    //rec.set_face_normal(r, normal);
     rec.set_face_normal(r, norm);
-
-    //std::cerr << "hit triangle, norm:" << rec.normal << "\n" << std::flush;
 
     return true;
 */

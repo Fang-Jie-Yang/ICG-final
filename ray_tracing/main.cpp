@@ -74,7 +74,8 @@ void load_teapot()
     {
         std::array<double, 4> pos;
         std::array<double, 3> norm;
-        sscanf(line.c_str(), "%lf %lf %lf %lf %lf %lf", &pos[0], &pos[1], &pos[2], &norm[0], &norm[1], &norm[2]);
+        sscanf(line.c_str(), "%lf %lf %lf %lf %lf %lf", 
+            &pos[0], &pos[1], &pos[2], &norm[0], &norm[1], &norm[2]);
         pos[3] = 1.0;
         teapot_pos.push_back(pos);
         teapot_norm.push_back(norm);
@@ -121,16 +122,15 @@ void add_teapot(hittable_list& objects, mat4 pos_mat, mat3 norm_mat, shared_ptr<
         vec3 face_norm = normalize(cross(u, v));
         vec3 avg_vertex_norm = (norm[0] + norm[1] + norm[2]) / 3;
         face_norm = (dot(face_norm, avg_vertex_norm) > 0.0f)? face_norm : -face_norm;
-        shared_ptr<hittable> tri = make_shared<triangle>(pos[0], pos[1], pos[2],
-                                                         norm[0], norm[1], norm[2],
-                                                         face_norm, m);
+        shared_ptr<hittable> tri = 
+            make_shared<triangle>(pos[0], pos[1], pos[2], norm[0], norm[1], norm[2], face_norm, m);
         teapot.add(tri);
 
         if(is_glass)
         {
-            shared_ptr<hittable> inner_tri = make_shared<triangle>(inner_pos[0], inner_pos[1], inner_pos[2],
-                                                                   -norm[0], -norm[1], -norm[2],
-                                                                   -face_norm, m);
+            shared_ptr<hittable> inner_tri = 
+                make_shared<triangle>(inner_pos[0], inner_pos[1], inner_pos[2],
+                    -norm[0], -norm[1], -norm[2], -face_norm, m);
             inner_teapot.add(inner_tri);
         }
     }
@@ -158,10 +158,10 @@ hittable_list world;
 camera cam;
 color background;
 
-
 // Global(output file)
 std::vector<std::vector<std::string>> pixels;
 
+// Rednering Thread
 void *render_thread(void *argv)
 {
     int *range = (int *)argv;
@@ -226,17 +226,6 @@ int main(int argc, char *argv[]) {
     world.add(make_shared<xz_rect>(-100, 100, -300,    0,  100, white));
     world.add(make_shared<xz_rect>(-100, 100, -300,    0, -100, white));
     world.add(make_shared<xy_rect>(-100, 100, -100,  100, -200, white));
-
-    /*
-    world.add(make_shared<triangle>(point3(-30, -50, -100),
-                                    point3( 30, -50, -100),
-                                    point3(  0, -50, -170),
-                                    vec3(0,1,0),
-                                    vec3(0,1,0),
-                                    vec3(0,1,0),
-                                    vec3(0,1,0),
-                                    light));
-    */
 
     for(int i = 0; i < number_of_teapot; i++)
     {
